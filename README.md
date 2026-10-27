@@ -1,6 +1,6 @@
 # P1. Que tempo fixo?
 
-Práctica de **Sistemas de Big Data (UD1)**. Se construye un pequeño *pipeline* de datos meteorológicos: descargar, inspeccionar, limpiar, analizar, visualizar y almacenar datos diarios en PostgreSQL. Se trabaja con la estación de **A Coruña / Alvedro** durante **2021–2025**.
+En esta práctica de **Sistemas de Big Data (UD1)** he desarrollado un pequeño *pipeline* de datos meteorológicos: descargo los datos, reviso su calidad, los limpio, los analizo, creo gráficas y, por último, los guardo en PostgreSQL. Trabajo con los registros diarios de la estación **A Coruña / Alvedro** entre **2021 y 2025**.
 
 ## 1. Datos y procedencia
 
@@ -14,11 +14,11 @@ Práctica de **Sistemas de Big Data (UD1)**. Se construye un pequeño *pipeline*
 | Origen meteorológico | [Meteostat](https://meteostat.net/) |
 | Archivo de esta práctica | [Repositorio de datos](https://github.com/bigdatawirtz/datasets/blob/main/datasets/meteo_alvedro_2021_2025.csv) |
 | URL de descarga directa | [CSV original de la práctica](https://raw.githubusercontent.com/bigdatawirtz/datasets/main/datasets/meteo_alvedro_2021_2025.csv) |
-| Fecha de descarga | **[COMPLETAR: fecha real de la primera descarga]** |
+| Fecha de descarga | 27/10/2026 |
 
-**Importante:** el CSV utilizado procede de datos meteorológicos de Meteostat, pero **ha sido modificado para esta actividad docente** con errores de calidad introducidos intencionadamente. Por ello, las anomalías que aparecen en el fichero no deben atribuirse directamente a Meteostat.
+**Importante:** los datos proceden originalmente de Meteostat, pero el CSV de la práctica **ha sido modificado con fines educativos** para incluir errores de calidad. Por tanto, los errores que encuentro en el fichero no tienen por qué estar presentes en la fuente original.
 
-**Condiciones de uso:** la [documentación de licencia de Meteostat](https://dev.meteostat.net/license) indica que los datos redistribuidos por Meteostat se ofrecen, con carácter general, bajo **Creative Commons Attribution 4.0 (CC BY 4.0)**: se permite compartirlos y adaptarlos con atribución a Meteostat y a sus proveedores, e indicando los cambios. También deben respetarse las condiciones aplicables a la fuente original cuando corresponda. En este proyecto se cita a Meteostat y se indica que el conjunto empleado ha sido modificado para fines didácticos.
+**Condiciones de uso:** la [documentación de licencia de Meteostat](https://dev.meteostat.net/license) indica que los datos redistribuidos por Meteostat se ofrecen, con carácter general, bajo **Creative Commons Attribution 4.0 (CC BY 4.0)**: se permite compartirlos y adaptarlos con atribución a Meteostat y a sus proveedores, e indicando los cambios. También deben respetarse las condiciones aplicables a la fuente original cuando corresponda. Por eso cito la fuente original y aclaro que el fichero usado en clase está modificado.
 
 ## 2. Requisitos
 
@@ -30,7 +30,7 @@ Para reproducir el proyecto se necesita:
 - **Docker Desktop** con Docker Compose. En Windows con WSL, iniciar Docker Desktop y habilitar la integración con la distribución WSL que se utilice.
 - Conexión a Internet para instalar dependencias, descargar la imagen de PostgreSQL y obtener el CSV.
 
-Los comandos siguientes están preparados para una **terminal Ubuntu/WSL**, como la utilizada en la práctica. Ejecutar los comandos de instalación desde la raíz del repositorio, salvo que se indique otra carpeta.
+He desarrollado el proyecto desde **Ubuntu en WSL**. Los comandos siguientes están pensados para ese entorno y deben ejecutarse desde la raíz del repositorio, salvo que indique otra ruta.
 
 ## 3. Reproducir la práctica desde cero
 
@@ -43,7 +43,7 @@ cd p1-que-tempo-fixo
 
 ### Paso 2. Crear y activar el entorno virtual
 
-Se crea en el directorio personal de WSL, fuera de la carpeta compartida de Windows, para evitar problemas de permisos.
+En mi caso creé el entorno virtual en la carpeta personal de WSL, fuera de la unidad de Windows, para evitar problemas de permisos.
 
 ```bash
 python3 -m venv ~/.venvs/p1-que-tempo-fixo
@@ -74,7 +74,7 @@ Abrir `.env` y rellenar las variables que aparecen en la plantilla:
 
 ```dotenv
 POSTGRES_USER=meteo
-POSTGRES_PASSWORD=elige_una_contrasena_local
+POSTGRES_PASSWORD=elige_una_contraseña_local
 POSTGRES_DB=meteo_db
 POSTGRES_PORT=5433
 ```
@@ -161,16 +161,17 @@ Las carpetas `datos/raw/` y `datos/clean/` se entregan **sin archivos CSV** en G
 
 ## 5. Limpieza y validación de los datos
 
-El conjunto original se conserva en `datos/raw/` sin modificaciones. La exploración del formato y de los problemas de calidad se documenta paso a paso en el notebook.
+Conservo el archivo descargado sin modificar en `datos/raw/`. Después analizo sus problemas de formato y calidad en el notebook. Estas son las decisiones que tomé:
 
 | Problema encontrado | Cómo se detectó | Decisión tomada |
 |---|---|---|
 | Metadatos antes de la cabecera | Inspección de los primeros bytes y líneas | Omitir las 6 primeras líneas al leer con pandas, conservando intacto el archivo original. |
 | Codificación y formato no estándar | Inspección del fichero y prueba de lectura | Leer con `latin-1`, separador `;`, coma decimal y punto de millares. Guardar el resultado limpio en UTF-8. |
 | Valores `-9999` como ausentes | Revisión de valores extremos y códigos de ausencia | Convertir esos valores a `NaN` para evitar que alteren medias y gráficos. |
-| Código `Ip` en precipitación | Inspección de valores no numéricos de lluvia | Tratarlo como precipitación inapreciable (`0 mm`), según el criterio documentado en el notebook. |
+| Código `Ip` en precipitación | Inspección de valores no numéricos de lluvia | Tratarlo como precipitación inapreciable (`0 mm`), según el criterio documentado en el notebook. | 
+| Fechas con formatos diferentes | Al revisar la columna `Data`, encontré fechas en formato `AAAA-MM-DD` y otras en `DD/MM/AAAA`. | Convertí ambos formatos con `pd.to_datetime()`, indicando el formato correspondiente en cada caso. Conseguí interpretar todas las fechas sin generar valores `NaT`. |
 | Fechas duplicadas | Búsqueda de duplicados por fecha | Resolver las 13 fechas duplicadas conservando el primer registro; distinguir los duplicados idénticos de los contradictorios. |
-| Fechas que faltan | Comparación con un calendario diario completo | Incorporar las 27 fechas ausentes como filas sin mediciones, sin inventar observaciones. |
+| Fechas que faltan | Comparación con un calendario diario completo | Incorporar las 27 fechas ausentes como filas sin mediciones, sin inventar observaciones. | 
 | Temperaturas inverosímiles o picos aislados | Inspección de rangos, estadísticas y visualizaciones | Marcar como ausente el dato de temperatura considerado no fiable. |
 | Temperatura media inconsistente con la mínima/máxima | Comparación entre variables del mismo día | Marcar como ausente la media inconsistente, preservando los valores considerados válidos. |
 | Precipitaciones negativas u otras inconsistencias | Comprobación de rangos y coherencia entre columnas | Revisar y tratar los valores inválidos según las reglas del notebook. |
@@ -180,7 +181,7 @@ El conjunto original se conserva en `datos/raw/` sin modificaciones. La explorac
 
 ## 6. Análisis y resultados
 
-El notebook incluye las cuatro preguntas del apartado 4.4, tres gráficas y la comparación de eficiencia del apartado 4.6. A modo de resumen:
+En el notebook respondo las cuatro preguntas del apartado 4.4, genero tres gráficas y comparo el rendimiento del bucle `for` frente a la operación vectorizada. Estos son algunos resultados:
 
 | Año | Temperatura media anual |
 |---|---:|
@@ -198,7 +199,7 @@ El notebook incluye las cuatro preguntas del apartado 4.4, tres gráficas y la c
 
 ### PostgreSQL
 
-PostgreSQL se ejecuta con Docker Compose. Se carga la tabla limpia `meteo_alvedro` con pandas `to_sql()` y se realizan tres consultas SQL, cotejadas con pandas:
+Para la parte de bases de datos utilizo PostgreSQL con Docker Compose. Cargo la tabla `meteo_alvedro` mediante `to_sql()` y compruebo las siguientes consultas SQL comparándolas con pandas:
 
 1. Temperatura media anual.
 2. Precipitación acumulada mensual media.
@@ -208,10 +209,7 @@ La tercera consulta devolvió **5, 8, 11, 3 y 6 días** para 2021, 2022, 2023, 2
 
 ## 7. Uso de inteligencia artificial
 
-Se utilizó **ChatGPT (OpenAI)** como apoyo durante el desarrollo para comprender el enunciado, aclarar conceptos de pandas, SQL, Docker y entornos virtuales, revisar fragmentos de código y ayudar a estructurar la documentación. Las decisiones de limpieza, la ejecución del notebook y las comparaciones de resultados entre pandas y PostgreSQL se comprobaron en el entorno de trabajo de la autora.
+Durante la práctica utilicé **ChatGPT (OpenAI)** como ayuda para entender algunos puntos del enunciado, resolver dudas sobre pandas, SQL, Docker y los entornos virtuales, revisar código y organizar la documentación.
 
-La IA se utilizó como **herramienta de apoyo**, no como fuente de datos meteorológicos ni como sustituto de las verificaciones.
+He ejecutado el código en mi entorno y comprobado los resultados, incluyendo las comparaciones entre pandas y PostgreSQL. Utilicé la IA como **apoyo para aprender y desarrollar la práctica**, no como fuente de datos meteorológicos ni para dar por correctos los resultados sin verificarlos.
 
-## 8. Entrega
-
-La entrega se realiza mediante un **enlace al repositorio de GitHub** en Moodle. El repositorio debe mantener `datos/` sin los CSV, conservar `.env` fuera de Git y contener el notebook **ejecutado con salidas visibles**. La fecha límite es la indicada en Moodle.
